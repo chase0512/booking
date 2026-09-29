@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>課程預約</title>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --green:#06C755; --green-dark:#05a948; --green-soft:#e6f9ee;
+    --ink:#1f2328; --sub:#6b7280; --line:#e5e7eb; --bg:#f5f6f8; --card:#fff;
+    --orange:#f08c00; --orange-soft:#fff4e0; --red:#e03131; --blue:#1c7ed6; --blue-soft:#e7f1fc;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+    font-size:16px;line-height:1.5}
+  header{background:var(--green);color:#fff;padding:18px 16px 14px}
+  header h1{margin:0;font-size:20px}
+  header .me{font-size:14px;opacity:.95;margin-top:4px}
+  .tabs{display:flex;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .tabs button{flex:1;border:0;background:none;padding:13px 0;font-size:16px;color:var(--sub);border-bottom:3px solid transparent}
+  .tabs button.on{color:var(--green-dark);border-color:var(--green);font-weight:600}
+  main{padding:12px 16px 120px}
+  .day{margin:18px 0 8px;font-weight:700;font-size:15px;color:var(--sub)}
+  .day:first-child{margin-top:4px}
+  .card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:10px;border:2px solid transparent;
+    display:flex;gap:12px;align-items:center;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+  .card.sel{border-color:var(--green);background:#f6fffa}
+  .card.dis{opacity:.55}
+  .card .time{font-size:18px;font-weight:700;min-width:58px}
+  .card .info{flex:1;min-width:0}
+  .card .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .tag{font-size:12px;padding:2px 8px;border-radius:999px;font-weight:600}
+  .tag.g{background:var(--green-soft);color:var(--green-dark)}
+  .tag.p{background:var(--blue-soft);color:var(--blue)}
+  .tag.o{background:var(--orange-soft);color:var(--orange)}
+  .tag.x{background:#f1f3f5;color:var(--sub)}
+  .meta{font-size:13px;color:var(--sub);margin-top:3px}
+  .seat{font-size:13px;font-weight:600}
+  .seat.low{color:var(--orange)} .seat.full{color:var(--red)}
+  .chk{width:26px;height:26px;border-radius:50%;border:2px solid #cfd4da;flex:none;display:grid;place-items:center;color:#fff;font-size:15px}
+  .card.sel .chk{background:var(--green);border-color:var(--green)}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:12px;align-items:center;z-index:10}
+  .bar .txt{flex:1;font-size:15px}
+  .btn{border:0;border-radius:10px;padding:13px 20px;font-size:16px;font-weight:600;background:var(--green);color:#fff}
+  .btn:disabled{background:#c9ced4}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+  .btn.block{width:100%}
+  .empty{text-align:center;color:var(--sub);padding:48px 0}
+  .box{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px}
+  .box h3{margin:0 0 10px;font-size:16px}
+  .note{background:var(--orange-soft);border-radius:12px;padding:14px;font-size:14px;margin-bottom:12px}
+  .note.info{background:var(--blue-soft)}
+  label{display:block;font-size:14px;color:var(--sub);margin:12px 0 4px}
+  input{width:100%;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .sum{display:flex;justify-content:space-between;padding:6px 0;font-size:15px}
+  .sum b{font-size:17px}
+  .list{margin:0;padding-left:20px} .list li{margin:4px 0}
+  .pay{white-space:pre-line;background:#f8f9fa;border-radius:10px;padding:12px;font-size:15px;margin:8px 0;word-break:break-all}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end}
+  .sheet{background:var(--bg);width:100%;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom))}
+  .sheet h2{margin:0 0 12px;font-size:19px}
+  .actions{display:flex;gap:10px;margin-top:16px} .actions .btn{flex:1}
+  .loading{position:fixed;inset:0;background:rgba(255,255,255,.8);display:grid;place-items:center;z-index:30;font-size:15px;color:var(--sub)}
+  .spin{width:34px;height:34px;border:4px solid var(--green-soft);border-top-color:var(--green);border-radius:50%;animation:s 0.8s linear infinite;margin:0 auto 10px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .err{white-space:pre-line;color:var(--red);background:#fff5f5;border-radius:10px;padding:12px;margin:10px 0;font-size:14px}
+  .bk{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px}
+  .bk.cancel{opacity:.5}
+  .bk .top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .bk .when{font-weight:700}
+  .hidden{display:none!important}
+  .ok-icon{font-size:48px;text-align:center;margin:8px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏋️ 課程預約</h1>
+  <div class="me" id="me">載入中…</div>
+</header>
+<nav class="tabs">
+  <button id="tab-s" class="on" onclick="showTab('s')">課表預約</button>
+  <button id="tab-m" onclick="showTab('m')">我的預約</button>
+</nav>
+<main>
+  <div id="view-s"></div>
+  <div id="view-m" class="hidden"></div>
+</main>
+<div class="bar" id="bar">
+  <div class="txt" id="bar-txt">請點選想預約的課程（可多選）</div>
+  <button class="btn" id="bar-btn" disabled onclick="openConfirm()">下一步</button>
+</div>
+<div id="modal"></div>
+<div class="loading" id="loading"><div><div class="spin"></div><div id="loading-txt">載入中…</div></div></div>
+
+<script>
+/* ========= 設定（已幫你填好） ========= */
+const LIFF_ID = '2011783068-qsVsbOUX';
+const API_URL = 'https://script.google.com/macros/s/AKfycby1yzD74PMtsYZlPTpYJOwY5CV_wbzWXbCu5HNcKYJc-NadgTypjwnTRNUoAveRUetn4Q/exec';
+/* ===================================== */
+
+let token = '', courses = [], me = null, selected = new Set();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const md = d => d ? (+d.slice(5,7)) + '/' + (+d.slice(8,10)) : '';
+const money = n => Number(n || 0).toLocaleString();
+
+function loading(on, txt){ $('loading').classList.toggle('hidden', !on); $('loading-txt').textContent = txt || '載入中…'; }
+
+async function api(body){
+  const res = await fetch(API_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || '發生錯誤');
+  return data;
+}
+
+async function init(){
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    token = liff.getAccessToken();
+    await reload();
+  } catch (e) {
+    loading(false);
+    $('view-s').innerHTML = '<div class="err">無法載入：' + esc(e.message || e) + '\n\n請關閉頁面後，從 LINE 官方帳號的選單重新開啟。</div>';
+    $('me').textContent = '';
+  }
+}
+
+async function reload(){
+  loading(true);
+  const [s, m] = await Promise.all([ api({action:'schedule'}), api({action:'me', accessToken: token}) ]);
+  courses = s.courses; me = m;
+  const credits = me.student ? me.student.credits : 0;
+  $('me').textContent = '嗨，' + (me.student && me.student.name ? me.student.name : me.user.displayName) + '｜剩餘堂數：' + credits + ' 堂';
+  const mine = new Set(me.bookings.filter(b => b.status !== '已取消').map(b => b.courseId));
+  selected.forEach(id => { if (mine.has(id) || !courses.find(c => c.id === id)) selected.delete(id); });
+  renderSchedule(mine); renderMine(); updateBar();
+  loading(false);
+}
+
+function showTab(t){
+  $('tab-s').classList.toggle('on', t === 's'); $('tab-m').classList.toggle('on', t === 'm');
+  $('view-s').classList.toggle('hidden', t !== 's'); $('view-m').classList.toggle('hidden', t !== 'm');
+  $('bar').classList.toggle('hidden', t !== 's');
+  window.scrollTo(0, 0);
+}
+
+function renderSchedule(mine){
+  if (!courses.length) { $('view-s').innerHTML = '<div class="empty">目前沒有開放預約的課程</div>'; return; }
+  let html = '', lastDate = '';
+  courses.forEach(c => {
+    if (c.date !== lastDate) { html += '<div class="day">' + md(c.date) + '（' + c.weekday + '）</div>'; lastDate = c.date; }
+    const booked = mine.has(c.id), full = c.remaining <= 0, dis = booked || full, sel = selected.has(c.id);
+    const typeTag = '<span class="tag ' + (c.type === '私教課' ? 'p' : 'g') + '">' + esc(c.type) + '</span>';
+    let seat;
+    if (booked) seat = '<span class="tag o">你已預約</span>';
+    else if (full) seat = '<span class="seat full">已額滿</span>';
+    else seat = '<span class="seat ' + (c.remaining <= 2 ? 'low' : '') + '">剩 ' + c.remaining + ' / ' + c.capacity + ' 位</span>';
+    html += '<div class="card ' + (dis ? 'dis' : '') + (sel ? ' sel' : '') + '" ' + (dis ? '' : 'onclick="toggle(\'' + esc(c.id) + '\')"') + '>' +
+      '<div class="time">' + esc(c.start) + '</div>' +
+      '<div class="info"><div class="row">' + typeTag + seat + '</div>' +
+      '<div class="meta">' + esc(c.start) + '–' + esc(c.end) + (c.coach ? '｜教練 ' + esc(c.coach) : '') + '｜' + money(c.fee) + ' 元</div></div>' +
+      (dis ? '' : '<div class="chk">' + (sel ? '✓' : '') + '</div>') + '</div>';
+  });
+  $('view-s').innerHTML = html;
+}
+
+function toggle(id){
+  selected.has(id) ? selected.delete(id) : selected.add(id);
+  renderSchedule(new Set(me.bookings.filter(b => b.status !== '已取消').map(b => b.courseId)));
+  updateBar();
+}
+
+function selectedCourses(){
+  return courses.filter(c => selected.has(c.id)).sort((a,b) => (a.date + a.start).localeCompare(b.date + b.start));
+}
+
+function preview(){
+  let credits = me.student ? me.student.credits : 0, use = 0, pay = 0;
+  selectedCourses().forEach(c => { if (credits > 0) { credits--; use++; } else pay += c.fee; });
+  return { use, pay, left: credits };
+}
+
+function updateBar(){
+  const n = selected.size;
+  $('bar-btn').disabled = !n;
+  if (!n) { $('bar-txt').textContent = '請點選想預約的課程（可多選）'; return; }
+  const p = preview();
+  $('bar-txt').innerHTML = '已選 <b>' + n + '</b> 堂' + (p.pay ? '｜應付 <b>' + money(p.pay) + '</b> 元' : '｜使用堂數');
+}
+
+function openConfirm(){
+  const list = selectedCourses(), p = preview(), st = me.student || {};
+  $('modal').innerHTML =
+    '<div class="modal" onclick="if(event.target===this)closeModal()"><div class="sheet">' +
+    '<h2>確認預約</h2>' +
+    '<div class="box"><h3>課程（' + list.length + ' 堂）</h3><ul class="list">' +
+      list.map(c => '<li>' + md(c.date) + '（' + c.weekday + '）' + esc(c.start) + '–' + esc(c.end) + ' ' + esc(c.type) + '</li>').join('') +
+    '</ul></div>' +
+    '<div class="box"><h3>付款</h3>' +
+      (p.use ? '<div class="sum"><span>使用剩餘堂數</span><b>' + p.use + ' 堂</b></div>' : '') +
+      (p.pay ? '<div class="sum"><span>需轉帳金額</span><b>' + money(p.pay) + ' 元</b></div>' : '') +
+      (p.pay ? '<div class="meta">送出後會顯示收款帳號</div>' : '<div class="meta">預約後剩餘 ' + p.left + ' 堂</div>') +
+    '</div>' +
+    '<div class="box"><h3>聯絡資料</h3>' +
+      '<label>姓名</label><input id="f-name" value="' + esc(st.name || '') + '" placeholder="請輸入真實姓名">' +
+      '<label>手機</label><input id="f-phone" type="tel" inputmode="tel" value="' + esc(st.phone || '') + '" placeholder="09xxxxxxxx">' +
+    '</div>' +
+    '<div id="f-err"></div>' +
+    '<div class="actions"><button class="btn ghost" onclick="closeModal()">返回</button><button class="btn" onclick="submitBooking()">確認預約</button></div>' +
+    '</div></div>';
+}
+
+function closeModal(){ $('modal').innerHTML = ''; }
+
+async function submitBooking(){
+  const name = $('f-name').value.trim(), phone = $('f-phone').value.trim();
+  if (!name) { $('f-err').innerHTML = '<div class="err">請填寫姓名</div>'; return; }
+  if (phone.replace(/\D/g,'').length < 8) { $('f-err').innerHTML = '<div class="err">請填寫正確的手機號碼</div>'; return; }
+  loading(true, '預約中，請稍候…');
+  try {
+    const r = await api({ action:'book', accessToken: token, courseIds: Array.from(selected), name, phone });
+    selected.clear();
+    await sendChatMessage(r);
+    await reload();
+    showResult(r);
+  } catch (e) {
+    loading(false);
+    $('f-err').innerHTML = '<div class="err">' + esc(e.message || e) + '</div>';
+  }
+}
+
+async function sendChatMessage(r){
+  if (!liff.isInClient()) return;
+  let text = '我已預約課程 ✅\n' + r.items.map(x => '・' + x).join('\n') + '\n訂單編號：' + r.orderId;
+  if (r.payAmount) text += '\n待轉帳：' + money(r.payAmount) + ' 元';
+  try { await liff.sendMessages([{ type:'text', text }]); } catch (e) { console.warn(e); }
+}
+
+function showResult(r){
+  $('modal').innerHTML =
+    '<div class="modal"><div class="sheet">' +
+    '<div class="ok-icon">🎉</div><h2 style="text-align:center">預約成功！</h2>' +
+    '<div class="box"><h3>已預約 ' + r.count + ' 堂</h3><ul class="list">' + r.items.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
+      '<div class="meta">訂單編號：' + esc(r.orderId) + '</div></div>' +
+    (r.usedCredits ? '<div class="box"><div class="sum"><span>已扣堂數</span><b>' + r.usedCredits + ' 堂</b></div><div class="sum"><span>剩餘堂數</span><b>' + r.remainingCredits + ' 堂</b></div></div>' : '') +
+    (r.payAmount ?
+      '<div class="note"><b>請轉帳 ' + money(r.payAmount) + ' 元</b><div class="pay">' + esc(r.paymentInfo) + '</div>' +
+      '<button class="btn ghost block" onclick="copyPay()">複製收款資訊</button>' +
+      '<div style="margin-top:10px">轉帳後，請傳訊息到官方帳號告知<b>帳號後五碼</b>，我們核對後就會確認。</div></div>' : '') +
+    '<div class="actions"><button class="btn block" onclick="closeModal();showTab(\'m\')">查看我的預約</button></div>' +
+    '</div></div>';
+  window._pay = r.paymentInfo || '';
+}
+
+function copyPay(){
+  const t = window._pay;
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(
+    () => alertBox('已複製收款資訊'),
+    () => alertBox('無法自動複製，請長按文字複製'));
+}
+function alertBox(msg){
+  const d = document.createElement('div');
+  d.textContent = msg;
+  d.style.cssText = 'position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 16px;border-radius:10px;z-index:40;font-size:14px';
+  document.body.appendChild(d); setTimeout(() => d.remove(), 1800);
+}
+
+function renderMine(){
+  const today = new Date(Date.now() + 8*3600e3).toISOString().slice(0,10);
+  const list = me.bookings.slice();
+  const upcoming = list.filter(b => b.status !== '已取消' && b.date >= today);
+  const others = list.filter(b => !(b.status !== '已取消' && b.date >= today)).reverse();
+  const credits = me.student ? me.student.credits : 0;
+
+  let html = '<div class="box"><div class="sum"><span>剩餘堂數</span><b>' + credits + ' 堂</b></div>' +
+    (me.pendingAmount ? '<div class="sum"><span>待付款金額</span><b style="color:var(--orange)">' + money(me.pendingAmount) + ' 元</b></div>' : '') + '</div>';
+
+  if (me.pendingAmount) {
+    html += '<div class="note"><b>尚有 ' + money(me.pendingAmount) + ' 元待付款</b><div class="pay">' + esc(me.paymentInfo) + '</div>' +
+      '<button class="btn ghost block" onclick="copyPay()">複製收款資訊</button>' +
+      '<div style="margin-top:10px">轉帳後請傳訊息到官方帳號告知帳號後五碼。</div></div>';
+    window._pay = me.paymentInfo || '';
+  }
+
+  html += '<div class="note info">如需<b>取消預約</b>，請直接傳訊息給官方帳號，我們會協助處理。' +
+    (liff.isInClient() ? '<button class="btn ghost block" style="margin-top:10px" onclick="liff.closeWindow()">回到聊天室傳訊息</button>' : '') + '</div>';
+
+  html += '<div class="day">即將上課（' + upcoming.length + '）</div>';
+  html += upcoming.length ? upcoming.map(bkCard).join('') : '<div class="empty" style="padding:20px 0">目前沒有預約</div>';
+  if (others.length) html += '<div class="day">已結束 / 已取消</div>' + others.map(bkCard).join('');
+  $('view-m').innerHTML = html;
+}
+
+function bkCard(b){
+  const cancel = b.status === '已取消';
+  let tag;
+  if (cancel) tag = '<span class="tag x">已取消</span>';
+  else if (b.payStatus === '已付款') tag = '<span class="tag g">已付款' + (b.payMethod === '堂數' ? '（堂數）' : '') + '</span>';
+  else tag = '<span class="tag o">待付款 ' + money(b.amount) + ' 元</span>';
+  return '<div class="bk' + (cancel ? ' cancel' : '') + '"><div class="top"><div class="when">' + md(b.date) + '（' + b.weekday + '）' + esc(b.time) + '</div>' + tag + '</div>' +
+    '<div class="meta">' + esc(b.type) + '｜訂單 ' + esc(b.orderId) + '</div></div>';
+}
+
+init();
+</script>
+</body>
+</html>
